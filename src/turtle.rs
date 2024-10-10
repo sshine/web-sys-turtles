@@ -1,22 +1,70 @@
+use crate::Position;
 use wasm_bindgen::JsValue;
 
-pub struct Turtle {
-    x: f64,
-    y: f64,
+pub trait Turtle {
+    fn forward(&mut self, distance: f64);
+    fn left(&mut self, angle: f64);
+    fn right(&mut self, angle: f64);
+    fn teleport(&mut self, position: Position, angle: f64);
+    fn position(&self) -> Position;
+    fn angle(&self) -> f64;
+    fn ghost(&self) -> GhostTurtle {
+        GhostTurtle {
+            position: self.position(),
+            angle: self.angle(),
+        }
+    }
+}
+pub struct CanvasTurtle {
+    position: Position,
     angle: f64,
     is_drawing: bool,
     fill_color: Option<String>,
     context: web_sys::CanvasRenderingContext2d,
 }
 
-impl Turtle {
+impl Turtle for CanvasTurtle {
+    fn forward(&mut self, distance: f64) {
+        let Position { x: old_x, y: old_y } = self.position;
+        let new_x = old_x + distance * self.angle.cos();
+        let new_y = old_y + distance * self.angle.sin();
+        self.context.line_to(new_x, new_y);
+        if self.is_drawing {
+            self.context.stroke();
+        }
+        self.position = Position { x: new_x, y: new_y };
+    }
+
+    fn teleport(&mut self, position: Position, angle: f64) {
+        self.context.move_to(position.x, position.y);
+        self.position = position;
+        self.angle = angle;
+    }
+
+    fn left(&mut self, degrees: f64) {
+        self.angle -= degrees * std::f64::consts::PI / 180.0;
+    }
+
+    fn right(&mut self, degrees: f64) {
+        self.angle += degrees * std::f64::consts::PI / 180.0;
+    }
+
+    fn position(&self) -> Position {
+        self.position
+    }
+
+    fn angle(&self) -> f64 {
+        self.angle
+    }
+}
+
+impl CanvasTurtle {
     pub fn default_with_context(context: web_sys::CanvasRenderingContext2d) -> Self {
-        Turtle {
-            x: Default::default(),
-            y: Default::default(),
-            angle: Default::default(),
-            is_drawing: Default::default(),
-            fill_color: Default::default(),
+        CanvasTurtle {
+            position: Default::default(),
+            angle: 0.0,
+            is_drawing: false,
+            fill_color: None,
             context,
         }
     }
@@ -46,29 +94,39 @@ impl Turtle {
     pub fn fill_color(&mut self, color: Option<String>) {
         self.fill_color = color.clone();
     }
+}
 
-    pub fn teleport(&mut self, x: f64, y: f64) {
-        self.x = x;
-        self.y = y;
-        self.context.move_to(x, y);
+pub struct GhostTurtle {
+    position: Position,
+    angle: f64,
+}
+
+impl Turtle for GhostTurtle {
+    fn forward(&mut self, distance: f64) {
+        let Position { x: old_x, y: old_y } = self.position;
+        let new_x = old_x + distance * self.angle.cos();
+        let new_y = old_y + distance * self.angle.sin();
+        self.position = Position { x: new_x, y: new_y };
     }
 
-    pub fn forward(&mut self, distance: f64) {
-        let new_x = self.x + distance * self.angle.cos();
-        let new_y = self.y + distance * self.angle.sin();
-        self.context.line_to(new_x, new_y);
-        if self.is_drawing {
-            self.context.stroke();
-        }
-        self.x = new_x;
-        self.y = new_y;
+    fn teleport(&mut self, position: Position, angle: f64) {
+        self.position = position;
+        self.angle = angle;
     }
 
-    pub fn left(&mut self, degrees: f64) {
+    fn left(&mut self, degrees: f64) {
         self.angle -= degrees * std::f64::consts::PI / 180.0;
     }
 
-    pub fn right(&mut self, degrees: f64) {
+    fn right(&mut self, degrees: f64) {
         self.angle += degrees * std::f64::consts::PI / 180.0;
+    }
+
+    fn position(&self) -> Position {
+        self.position
+    }
+
+    fn angle(&self) -> f64 {
+        self.angle
     }
 }
